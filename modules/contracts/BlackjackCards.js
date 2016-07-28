@@ -19,7 +19,7 @@ function BlackjackCards(cb, _library) {
 BlackjackCards.prototype.create = function(data, trs) {
     console.log("!!!!!!!!!! BlackjackCards.create");
 
-    trs.amount = 10000000;
+    trs.amount = 100000000;
     trs.recipientId = data.recipientId;
 
     trs.asset = {
@@ -37,7 +37,7 @@ BlackjackCards.prototype.calculateFee = function(trs) {
 BlackjackCards.prototype.verify = function(trs, sender, cb, scope) {
     console.log("!!!!!!!!!! BlackjackCards.verify");
 
-    if (trs.amount != 10000000) {
+    if (trs.amount != 100000000) {
         return cb("Incorrect amount for message");
     }
 
@@ -115,7 +115,7 @@ BlackjackCards.prototype.dbRead = function(row) {
         return null;
     } else {
         return {
-            cards: row.t_cards_message
+            cards: row.t_cards_cards
         };
     }
 }
@@ -184,10 +184,8 @@ BlackjackCards.prototype.add = function(cb, query) {
             return cb(err);
         }
 
-        var transaction;
-
         try {
-            transaction = library.modules.logic.transaction.create({
+            var transaction = library.modules.logic.transaction.create({
                 type: self.type,
                 cards: query.cards,
                 recipientId: query.recipientId,
@@ -227,10 +225,10 @@ BlackjackCards.prototype.list = function(cb, query) {
                 type: self.type
             },
             join: [{
-                type: 'left outer',
-                table: 'asset_blackjackcards',
+                type: "left outer",
+                table: "asset_blackjackcards",
                 alias: "t_cards",
-                on: { "t.id": "t_cards.transactionId" }
+                on: { "t.id": "t_cards.\"transactionId\"" }
             }]
         }, ['id', 'type', 'senderId', 'senderPublicKey', 'recipientId', 'amount', 'fee', 'timestamp', 'signature', 'blockId', 'token', 'cards', 'transactionId'], function(err, transactions) {
             if (err) {
@@ -239,12 +237,7 @@ BlackjackCards.prototype.list = function(cb, query) {
 
             // Map results to asset object
             var cards = transactions.map(function(tx) {
-                tx.asset = {
-                    cards: new Buffer(tx.cards, 'hex').toString('utf8')
-                };
-
-                delete tx.cards;
-                return tx;
+                return new Buffer(tx.cards, 'hex').toString('utf8')
             });
 
             return cb(null, {
