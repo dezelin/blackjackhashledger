@@ -1,0 +1,9 @@
+PUT http://localhost:7000/api/dapps/7122403458829374178/api/blackjack/add HTTP/1.1
+
+content-type: application/json
+
+{
+    "recipientId": "13559335984282906527L",
+    "secret": "task plate cruel elder wrist again solid sketch focus empower trumpet grass",
+    "cards": "Hello world!"
+}

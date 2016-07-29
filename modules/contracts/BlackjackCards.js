@@ -8,8 +8,6 @@ var private = {},
 //
 
 function BlackjackCards(cb, _library) {
-    console.log("!!!!!!!!!! BlackjackCards function");
-
     self = this;
     self.type = 7
     library = _library;
@@ -17,9 +15,6 @@ function BlackjackCards(cb, _library) {
 }
 
 BlackjackCards.prototype.create = function(data, trs) {
-    console.log("!!!!!!!!!! BlackjackCards.create");
-
-    trs.amount = 100000000;
     trs.recipientId = data.recipientId;
 
     trs.asset = {
@@ -30,17 +25,10 @@ BlackjackCards.prototype.create = function(data, trs) {
 }
 
 BlackjackCards.prototype.calculateFee = function(trs) {
-    console.log("!!!!!!!!!! BlackjackCards.calculateFee");
     return 10000000;
 }
 
 BlackjackCards.prototype.verify = function(trs, sender, cb, scope) {
-    console.log("!!!!!!!!!! BlackjackCards.verify");
-
-    if (trs.amount != 100000000) {
-        return cb("Incorrect amount for message");
-    }
-
     if (trs.asset.cards.length > 320) {
         return setImmediate(cb, "Max length of message is 320 characters");
     }
@@ -49,57 +37,46 @@ BlackjackCards.prototype.verify = function(trs, sender, cb, scope) {
 }
 
 BlackjackCards.prototype.getBytes = function(trs) {
-    console.log("!!!!!!!!!! BlackjackCards.getBytes");
     return new Buffer(trs.asset.cards, 'hex');
 }
 
 BlackjackCards.prototype.apply = function(trs, sender, cb, scope) {
-    console.log("!!!!!!!!!! BlackjackCards.apply");
-    var amount = trs.amount + trs.fee;
     modules.blockchain.accounts.mergeAccountAndGet({
         address: sender.address,
-        balance: -amount
+        balance: -trs.fee
     }, cb);
 }
 
 BlackjackCards.prototype.undo = function(trs, sender, cb, scope) {
-    console.log("!!!!!!!!!! BlackjackCards.undo");
-    var amount = trs.amount + trs.fee;
     modules.blockchain.accounts.undoMerging({
         address: sender.address,
-        balance: -amount
+        balance: -trs.fee
     }, cb);
 }
 
 BlackjackCards.prototype.applyUnconfirmed = function(trs, sender, cb, scope) {
-    console.log("!!!!!!!!!! BlackjackCards.applyUnconfirmed");
     if (sender.u_balance < trs.fee) {
         return setImmediate(cb, "Sender doesn't have enough coins");
     }
 
-    var amount = trs.amount + trs.fee;
     modules.blockchain.accounts.mergeAccountAndGet({
         address: sender.address,
-        u_balance: -amount
+        u_balance: -trs.fee
     }, cb);
 }
 
 BlackjackCards.prototype.undoUnconfirmed = function(trs, sender, cb, scope) {
-    console.log("!!!!!!!!!! BlackjackCards.undoUnconfirmed");
-    var amount = trs.amount + trs.fee;
     modules.blockchain.accounts.undoMerging({
         address: sender.address,
-        u_balance: -amount
+        u_balance: -trs.fee
     }, cb);
 }
 
 BlackjackCards.prototype.ready = function(trs, sender, cb, scope) {
-    console.log("!!!!!!!!!! BlackjackCards.ready");
     setImmediate(cb);
 }
 
 BlackjackCards.prototype.save = function(trs, cb) {
-    console.log("!!!!!!!!!! BlackjackCards.save");
     modules.api.sql.insert({
         table: "asset_blackjackcards",
         values: {
@@ -110,7 +87,6 @@ BlackjackCards.prototype.save = function(trs, cb) {
 }
 
 BlackjackCards.prototype.dbRead = function(row) {
-    console.log("!!!!!!!!!! BlackjackCards.dbRead");
     if (!row.t_cards_transactionId) {
         return null;
     } else {
@@ -121,7 +97,6 @@ BlackjackCards.prototype.dbRead = function(row) {
 }
 
 BlackjackCards.prototype.normalize = function(asset, cb) {
-    console.log("!!!!!!!!!! BlackjackCards.normalize");
     library.validator.validate(asset, {
         type: "object",
         properties: {
@@ -136,7 +111,6 @@ BlackjackCards.prototype.normalize = function(asset, cb) {
 }
 
 BlackjackCards.prototype.onBind = function(_modules) {
-    console.log("!!!!!!!!!! BlackjackCards.onBind");
     modules = _modules;
     modules.logic.transaction.attachAssetType(self.type, self);
 }
@@ -146,57 +120,68 @@ BlackjackCards.prototype.onBind = function(_modules) {
 //
 
 BlackjackCards.prototype.add = function(cb, query) {
-    library.validator.validate(query, {
-        type: "object",
-        properties: {
-            recipientId: {
-                type: "string",
-                minLength: 1,
-                maxLength: 21
+    var validateQuery = function(callback) {
+        library.validator.validate(query, {
+            type: "object",
+            properties: {
+                recipientId: {
+                    type: "string",
+                    minLength: 1,
+                    maxLength: 21
+                },
+                secret: {
+                    type: "string",
+                    minLength: 1,
+                    maxLength: 100
+                },
+                cards: {
+                    type: "string",
+                    minLength: 1,
+                    maxLength: 160
+                }
             },
-            secret: {
-                type: "string",
-                minLength: 1,
-                maxLength: 100
-            },
-            cards: {
-                type: "string",
-                minLength: 1,
-                maxLength: 160
+            required: ["recipientId", "secret", "cards"]
+        }, function(err) {
+            if (err)
+                return callback(err[0].message);
+
+            callback();
+        });
+    }
+
+    var createTransaction = function(callback) {
+        var keypair = modules.api.crypto.keypair(query.secret);
+
+        modules.blockchain.accounts.getAccount({
+            publicKey: keypair.publicKey.toString('hex')
+        }, function(err, account) {
+            if (err) {
+                return callback(err);
             }
-        },
-        required: ["recipientId", "secret", "cards"]
-    }, function(err) {
-        // If error exists, execute callback with error as first argument
-        if (err) {
-            return cb(err[0].message);
-        }
-    });
 
-    var keypair = modules.api.crypto.keypair(query.secret);
+            try {
+                var transaction = library.modules.logic.transaction.create({
+                    type: self.type,
+                    cards: query.cards,
+                    recipientId: query.recipientId,
+                    sender: account,
+                    keypair: keypair
+                });
+            } catch (e) {
+                return setImmediate(callback, e.toString());
+            }
 
-    console.log(keypair);
+            modules.blockchain.transactions.processUnconfirmedTransaction(transaction, callback);
+        });
+    }
 
-    modules.blockchain.accounts.getAccount({
-        publicKey: keypair.publicKey.toString('hex')
-    }, function(err, account) {
-        if (err) {
-            return cb(err);
-        }
+    var async = require('async');
 
-        try {
-            var transaction = library.modules.logic.transaction.create({
-                type: self.type,
-                cards: query.cards,
-                recipientId: query.recipientId,
-                sender: account,
-                keypair: keypair
-            });
-        } catch (e) {
-            return setImmediate(cb, e.toString());
-        }
-
-        modules.blockchain.transactions.processUnconfirmedTransaction(transaction, cb);
+    async.series([
+        validateQuery,
+        createTransaction
+    ], function(err, result) {
+        return cb(err, result);
     });
 }
 
