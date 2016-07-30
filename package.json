@@ -19,7 +19,6 @@
 		"extend": "^3.0.0",
 		"ip": "*",
 		"js-nacl": "^0.6.0",
-		"sleep": "*",
 		"z-schema": "https://github.com/LiskHQ/z-schema/tarball/master"
 	}
 }
