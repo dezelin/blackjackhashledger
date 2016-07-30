@@ -1,9 +1,7 @@
 var util = require('util');
 
-var private = {},
-    self = null,
-    library = null,
-    modules = null;
+var private = {}, self = null,
+	library = null, modules = null;
 
 /**
  * Creates instance of Sql API. Use *modules.api.sql* to get existing object.
@@ -13,66 +11,70 @@ var private = {},
  * @constructor
  */
 function Sql(cb, _library) {
-    self = this;
-    library = _library;
-    cb(null, self);
+	self = this;
+	library = _library;
+	cb(null, self);
 }
 
-private.row2object = function(row) {
-    for (var
-            out = {},
-            length = this.length,
-            i = 0; i < length; i++) {
-        out[this[i]] = row[this[i]];
-    }
+private.row2object = function (row) {
+	for (var
+			 out = {},
+			 length = this.length,
+			 i = 0; i < length; i++
+	) {
+		out[this[i]] = row[this[i]];
+	}
 
-    return out;
+	return out;
 }
 
-private.row2parsed = function(row) {
-    var values = [];
-    for (var key of Object.keys(row)) {
-        values.push(row[key]);
-    }
+private.row2parsed = function (row) {
+	var values = [];
+	for (var key of Object.keys(row)) {
+		values.push(row[key]);
+	}
 
-    for (var
-            out = {},
-            value = null,
-            fields = this.f,
-            parsers = this.p,
-            length = fields.length,
-            i = 0; i < length; i++) {
-        value = values[i];
+	for (var
+			 out = {},
+			 value = null,
+			 fields = this.f,
+			 parsers = this.p,
+			 length = fields.length,
+			 i = 0; i < length; i++
+	) {
+		value = values[i];
 
-        if (parsers[i] === Buffer) {
-            out[fields[i]] = parsers[i](value, 'hex');
-        } else if (parsers[i] === Array) {
-            out[fields[i]] = values ? value.split(",") : [];
-        } else if (value) {
-            out[fields[i]] = parsers[i](value);
-        }
-    }
+		if (parsers[i] === Buffer) {
+			out[fields[i]] = parsers[i](value, 'hex');
+		} else if (parsers[i] === Array) {
+			out[fields[i]] = values ? value.split(",") : [];
+		} else if (value) {
+			out[fields[i]] = parsers[i](value);
+		}
+	}
 
-    return out;
+	return out;
 }
 
-private.parseFields = function($fields) {
-    for (var
-            current,
-            fields = Object.keys($fields),
-            parsers = [],
-            length = fields.length,
-            i = 0; i < length; i++) {
-        current = $fields[fields[i]];
-        parsers[i] = current === Boolean ?
-            Boolean : (
-                current === Date ?
-                Date :
-                current || String
-            );
-    }
+private.parseFields = function ($fields) {
+	for (var
+			 current,
+			 fields = Object.keys($fields),
+			 parsers = [],
+			 length = fields.length,
+			 i = 0; i < length; i++
+	) {
+		current = $fields[fields[i]];
+		parsers[i] = current === Boolean ?
+			Boolean : (
+			current === Date ?
+				Date :
+			current || String
+		)
+		;
+	}
 
-    return { f: fields, p: parsers };
+	return {f: fields, p: parsers};
 }
 
 /**
@@ -81,25 +83,25 @@ private.parseFields = function($fields) {
  * @param map - Fields map.
  * @param {Sql~selectCallback} cb - Callback handles response from Lisk.
  */
-Sql.prototype.select = function(request, map, cb) {
-    if (typeof map == 'function') {
-        cb = map;
-        map = null;
-    }
-    var message = {
-        call: "sql#select",
-        args: request
-    };
+Sql.prototype.select = function (request, map, cb) {
+	if (typeof map == 'function') {
+		cb = map;
+		map = null;
+	}
+	var message = {
+		call: "sql#select",
+		args: request
+	};
 
-    library.sandbox.sendMessage(message, function(err, rows) {
-        if (map && !err) {
-            rows = util.isArray(map) ?
-                rows.map(private.row2object, map) :
-                rows.map(private.row2parsed, private.parseFields(map));
-        }
+	library.sandbox.sendMessage(message, function (err, rows) {
+		if (map && !err) {
+			rows = util.isArray(map) ?
+				rows.map(private.row2object, map) :
+				rows.map(private.row2parsed, private.parseFields(map));
+		}
 
-        cb(err, rows);
-    });
+		cb(err, rows);
+	});
 }
 
 /**
